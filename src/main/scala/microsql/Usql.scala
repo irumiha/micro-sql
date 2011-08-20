@@ -2,6 +2,7 @@ package microsql;
 
 import java.sql._
 import java.io.InputStream
+import scala.collection.Iterator
 
 object Usql {
   case class TV(columnType: String, value: AnyRef)
