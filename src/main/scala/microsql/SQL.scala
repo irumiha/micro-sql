@@ -1,19 +1,18 @@
-package microsql;
+package microsql
 
 import java.sql._
 import java.io.InputStream
 import scala.collection.Iterator
 
-object Usql {
-  case class TV(columnType: String, value: AnyRef)
-  def rowToMap(rrs: RichResultSet): Map[String,TV] = {
+object SQL {
+  def extractToMap(rrs: RichResultSet): Map[String,Map[String,AnyRef]] = {
     val md = rrs.rs.getMetaData
     val colCount = md.getColumnCount
 
-    val nm = collection.mutable.Map[String,TV]()
-    var cc = 1;
+    val nm = collection.mutable.Map[String,Map[String,AnyRef]]()
+    var cc = 1
     while(cc <= colCount) {
-      nm += (md.getColumnName(cc) -> TV(md.getColumnTypeName(cc), rrs.rs.getObject(cc)))
+      nm += (md.getColumnName(cc) -> Map("type" -> md.getColumnTypeName(cc),"value" -> rrs.rs.getObject(cc)))
       cc += 1
     }
 
@@ -38,26 +37,29 @@ object Usql {
     else new NIter[X](f(new RichResultSet(rs)),f,rs)
   }
 
-  implicit def query[X](s: String, f: RichResultSet => X)(implicit stat: Statement) = {
-      strm(f,stat.executeQuery(s));
+  implicit def query[X](s: String, f: RichResultSet => X)(implicit stat: Statement): Iterator[X] = {
+      strm(f,stat.executeQuery(s))
   }
 
-  implicit def conn2Statement(conn: Connection): Statement = conn.createStatement;
+  implicit def conn2Statement(conn: Connection): Statement = conn.createStatement
 
-  implicit def rrs2Boolean(rs: RichResultSet)      = rs.nextBoolean;
-  implicit def rrs2Byte(rs: RichResultSet)         = rs.nextByte;
-  implicit def rrs2Int(rs: RichResultSet)          = rs.nextInt;
-  implicit def rrs2Long(rs: RichResultSet)         = rs.nextLong;
-  implicit def rrs2Float(rs: RichResultSet)        = rs.nextFloat;
-  implicit def rrs2Double(rs: RichResultSet)       = rs.nextDouble;
-  implicit def rrs2String(rs: RichResultSet)       = rs.nextString;
-  implicit def rrs2Date(rs: RichResultSet)         = rs.nextDate;
-  implicit def rrs2Time(rs: RichResultSet)         = rs.nextTime;
-  implicit def rrs2Timestamp(rs: RichResultSet)    = rs.nextTimestamp;
-  implicit def rrs2BinaryStream(rs: RichResultSet) = rs.nextBinStream;
+  implicit def rrs2Boolean(rs: RichResultSet): Boolean          = rs.nextBoolean
+  implicit def rrs2Byte(rs: RichResultSet): Byte                = rs.nextByte
+  implicit def rrs2Int(rs: RichResultSet): Int                  = rs.nextInt
+  implicit def rrs2Long(rs: RichResultSet): Long                = rs.nextLong
+  implicit def rrs2Float(rs: RichResultSet): Float              = rs.nextFloat
+  implicit def rrs2Double(rs: RichResultSet): Double            = rs.nextDouble
+  implicit def rrs2String(rs: RichResultSet): String            = rs.nextString
+  implicit def rrs2Date(rs: RichResultSet): Date                = rs.nextDate
+  implicit def rrs2Time(rs: RichResultSet): Time                = rs.nextTime
+  implicit def rrs2Timestamp(rs: RichResultSet): Timestamp      = rs.nextTimestamp
+  implicit def rrs2BinaryStream(rs: RichResultSet): InputStream = rs.nextBinStream
 
-  implicit def resultSet2Rich(rs: ResultSet) = new RichResultSet(rs);
-  implicit def rich2ResultSet(r: RichResultSet) = r.rs;
+  implicit def resultSet2Rich(rs: ResultSet): RichResultSet = new RichResultSet(rs)
+  implicit def rich2ResultSet(r: RichResultSet): ResultSet = r.rs
+
+  // will convert any single value to a Tuple1 where it is needed
+  implicit def value2tuple[T](x: T): Tuple1[T] = Tuple1(x)
 
   class RichResultSet(val rs: ResultSet) {
 
@@ -85,19 +87,15 @@ object Usql {
       var ret = List[X]()
       while (rs.next())
       ret = f(rs) :: ret
-      ret.reverse; // ret should be in the same order as the ResultSet
+      ret.reverse // ret should be in the same order as the ResultSet
     }
   }
 
-  implicit def ps2Rich(ps: PreparedStatement) = new RichPreparedStatement(ps);
-  implicit def rich2PS(r: RichPreparedStatement) = r.ps;
-
-  def using(conn: Connection)(f: Connection => Unit) {
-    f
-  }
+  implicit def ps2Rich(ps: PreparedStatement): RichPreparedStatement = new RichPreparedStatement(ps)
+  implicit def rich2PS(r: RichPreparedStatement): PreparedStatement  = r.ps
 
   implicit def str2RichPrepared(s: String)(implicit conn: Connection): RichPreparedStatement =
-    conn prepareStatement(s);
+    conn prepareStatement(s)
 
   def withPrepared[X](rps: RichPreparedStatement)(f: RichPreparedStatement => X): X = {
     val r = f(rps)
@@ -158,19 +156,42 @@ object Usql {
     rps.close()
   }
 
+  def transaction[X](f: => X)(implicit conn: Connection): Either[String,X] = {
+    val oldIsolationLevel = conn.getTransactionIsolation
+    val oldAutoCommit     = conn.getAutoCommit
+    conn.setTransactionIsolation(Connection.TRANSACTION_SERIALIZABLE)
+    conn.setAutoCommit(false)
+
+    try {
+      val r = f
+      conn.commit()
+      Right(r)
+    }
+    catch {
+      case e:Exception => {
+        conn.rollback()
+        Left(e.getMessage + "\n" + e.getStackTraceString)
+      }
+    }
+    finally {
+      conn.setTransactionIsolation(oldIsolationLevel)
+      conn.setAutoCommit(oldAutoCommit)  
+    }
+  }
+
   class RichPreparedStatement(val ps: PreparedStatement) {
-    var pos = 1;
+    var pos = 1
     private def inc = { pos = pos + 1; this }
 
     def execute[X](f: RichResultSet => X): Iterator[X] = {
       pos = 1; strm(f, ps.executeQuery)
     }
 
-    def <<![X](f: RichResultSet => X): Iterator[X] = execute(f);
+    def <<![X](f: RichResultSet => X): Iterator[X] = execute(f)
 
     def execute = { pos = 1; ps.execute; this}
 
-    def <<! = execute;
+    def <<! = execute
 
     def close() { ps.close() }
 
