@@ -54,11 +54,10 @@ object Orm {
       val fieldsForQuery = if (isKeyed) fields.filter(_._1 != "id") else fields
 
       val insertStr =
-        ("insert into "+
-          tableName+
-          " ("+fieldsForQuery.map(_._1).mkString(",")+
-          ") values ("+
-          fieldsForQuery.map(x => "?").mkString(",")+")")
+        "insert into %s (%s) values (%s)".
+          format(tableName,
+            fieldsForQuery.map(_._1).mkString(","),
+            fieldsForQuery.map(x => "?").mkString(","))
 
       withPrepared(insertStr,returnGeneratedKeys) { s =>
         ent.asInstanceOf[Product].productIterator.foldLeft(s){(s,f) => s << f.asInstanceOf[AnyRef]}
@@ -92,7 +91,7 @@ object Orm {
       import microsql.SQL._
       val entData = entities(man.erasure.getName)
       val (tableName,fields) = entData
-      val fetchStr = "select * from "+tableName+" where id=?"
+      val fetchStr = "select * from %s where id=?".format(tableName)
 
       (fetchStr << id execute { extract[T](_) }).toList.headOption
     }
@@ -101,7 +100,7 @@ object Orm {
       import microsql.SQL._
       val entData = entities(man.erasure.getName)
       val (tableName,fields) = entData
-      val fetchStr = "delete * from "+tableName+" where id=?"
+      val fetchStr = "delete * from %s where id=?".format(tableName)
 
       (fetchStr << id <<!).execute
     }

@@ -131,8 +131,7 @@ class SQLTest extends FeatureSpec with GivenWhenThen {
       then("the select with multiple bound args must give us a list of lists of results")
       case class Student(name: String, lastName: String)
       val result = executeForResult(
-        "select name,last_name from student where name=?",
-        List("john","marry","peter")){ r => Student(r,r) }
+        "select name,last_name from student where name=?",List("john","marry","peter")){ r => Student(r,r)}
       assert(result.head.head.name == "john")
       assert(result.drop(2).head.head.lastName == "pan")
       c.close()
@@ -227,7 +226,5 @@ class SQLTest extends FeatureSpec with GivenWhenThen {
       assert(result.isEmpty == true)
       c.close()
     }
-
-
   }
 }

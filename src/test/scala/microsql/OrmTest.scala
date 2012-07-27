@@ -57,8 +57,7 @@ class OrmTest extends FeatureSpec with GivenWhenThen {
       val testUpdate = loadByID[Student](1).get
       testUpdate.last_name = "somethingother"
       update(testUpdate)
-      println(loadByID[Student](1))
-      // assert(r2.name == "igor")
+      assert(loadByID[Student](1).get.last_name equals "somethingother")
     }
   }
 }
