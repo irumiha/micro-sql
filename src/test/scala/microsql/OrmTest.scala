@@ -1,4 +1,4 @@
-package microsql
+ package microsql
 
 import org.scalatest.{FeatureSpec,GivenWhenThen}
 import java.sql._
@@ -37,7 +37,7 @@ class OrmTest extends FeatureSpec with GivenWhenThen {
 
       when("a domain model is defined")
       object SchoolSchema extends Schema {
-        val entities = Map(
+        override val entities = Map(
           entity[Student]("student"),
           entity[Teacher]("teacher"))
       }
