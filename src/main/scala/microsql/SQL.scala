@@ -1,4 +1,5 @@
 package microsql
+import scala.language.implicitConversions
 
 import java.sql._
 import java.io.InputStream
@@ -59,6 +60,7 @@ object SQL {
       rs
     }
   }
+
   implicit def rpsToIter(rps: RichPreparedStatement): Iterator[ResultSet] = {
     val rs = rps.ps.getResultSet
     if (rs.next) new RSIter(rs)

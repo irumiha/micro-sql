@@ -1,6 +1,6 @@
 package microsql
 
-import org.scalatest.{FeatureSpec,GivenWhenThen}
+import org.scalatest.{FeatureSpec, GivenWhenThen}
 import java.sql._
 
 class SQLTest extends FeatureSpec with GivenWhenThen {
@@ -13,17 +13,17 @@ class SQLTest extends FeatureSpec with GivenWhenThen {
     scenario("running a create and insert query") {
       import microsql.SQL._
 
-      given("an empty database")
+      Given("an empty database")
       Class.forName("org.h2.Driver")
       implicit val c = DriverManager.getConnection("jdbc:h2:/tmp/test.db","sa","")
       executeSimple("drop table if exists student")
       executeSimple("drop table if exists teacher")
       executeSimple("create table if not exists student (id int, name varchar(128), last_name varchar(128))")
 
-      when("an insert query is run")
+      When("an insert query is run")
       executeSimple("insert into student (id,name,last_name) values (1,'john','doe')")
 
-      then("that row should be fetchable from the database")
+      Then("that row should be fetchable from the database")
       val studentName = executeForResult("select * from student where id=1") { r =>
         r.getString("name")
       }.head
@@ -35,20 +35,20 @@ class SQLTest extends FeatureSpec with GivenWhenThen {
     scenario("running a batch insert statement") {
       import microsql.SQL._
 
-      given("an empty database")
+      Given("an empty database")
       Class.forName("org.h2.Driver")
       implicit val c = DriverManager.getConnection("jdbc:h2:/tmp/test.db","sa","")
       executeSimple("drop table if exists student")
       executeSimple("drop table if exists teacher")
       executeSimple("create table if not exists student (id int, name varchar(128), last_name varchar(128))")
 
-      when("a batch insert statement is run")
+      When("a batch insert statement is run")
       executeSimple("insert into student (id,name,last_name) values (?,?,?)",
         List((1,"john","doe"),
              (2,"marry","poppins"),
              (3,"peter","pan")))
 
-      then("the table should have the inserted number of rows")
+      Then("the table should have the inserted number of rows")
       val rowCount = executeForResult("select count(*) as count from student") {_.getInt("count")}.head
       assert(rowCount == 3)
 
@@ -60,20 +60,20 @@ class SQLTest extends FeatureSpec with GivenWhenThen {
     scenario("fetching resultset rows as Maps") {
       import microsql.SQL._
 
-      given("an empty database")
+      Given("an empty database")
       Class.forName("org.h2.Driver")
       implicit val c = DriverManager.getConnection("jdbc:h2:/tmp/test.db","sa","")
       executeSimple("drop table if exists student")
       executeSimple("drop table if exists teacher")
       executeSimple("create table if not exists student (id int, name varchar(128), last_name varchar(128))")
 
-      when("a batch insert statement is run")
+      When("a batch insert statement is run")
       executeSimple("insert into student (id,name,last_name) values (?,?,?)",
         List((1,"john","doe"),
              (2,"marry","poppins"),
              (3,"peter","pan")))
 
-      then("the select with rowToMap extractor function must return rows as Maps")
+      Then("the select with rowToMap extractor function must return rows as Maps")
       val result = executeForResult("select * from student order by id")( extractToMap )
       assert(result.head("ID")("value") match {
         case Some(v) => v equals 1
@@ -89,20 +89,20 @@ class SQLTest extends FeatureSpec with GivenWhenThen {
     scenario("fetching resultset rows as a case class") {
       import microsql.SQL._
 
-      given("an empty database")
+      Given("an empty database")
       Class.forName("org.h2.Driver")
       implicit val c = DriverManager.getConnection("jdbc:h2:/tmp/test.db","sa","")
       executeSimple("drop table if exists student")
       executeSimple("drop table if exists teacher")
       executeSimple("create table if not exists student (id int, name varchar(128), last_name varchar(128))")
 
-      when("a batch insert statement is run")
+      When("a batch insert statement is run")
       executeSimple("insert into student (id,name,last_name) values (?,?,?)",
         List((1,"john","doe"),
              (2,"marry","poppins"),
              (3,"peter","pan")))
 
-      then("the select with case class extractor function must return rows as that class")
+      Then("the select with case class extractor function must return rows as that class")
       case class Student(name: String, lastName: String)
       val result = executeForResult("select name,last_name from student"){
         r => Student(r,r)
@@ -115,20 +115,20 @@ class SQLTest extends FeatureSpec with GivenWhenThen {
     scenario("fetching resultset rows as a case class, with multiple bound args") {
       import microsql.SQL._
 
-      given("an empty database")
+      Given("an empty database")
       Class.forName("org.h2.Driver")
       implicit val c = DriverManager.getConnection("jdbc:h2:/tmp/test.db","sa","")
       executeSimple("drop table if exists student")
       executeSimple("drop table if exists teacher")
       executeSimple("create table if not exists student (id int, name varchar(128), last_name varchar(128))")
 
-      when("a batch insert statement is run")
+      When("a batch insert statement is run")
       executeSimple("insert into student (id,name,last_name) values (?,?,?)",
         List((1,"john","doe"),
              (2,"marry","poppins"),
              (3,"peter","pan")))
 
-      then("the select with multiple bound args must give us a list of lists of results")
+      Then("the select with multiple bound args must give us a list of lists of results")
       case class Student(name: String, lastName: String)
       val result = executeForResult(
         "select name,last_name from student where name=?",
@@ -142,20 +142,20 @@ class SQLTest extends FeatureSpec with GivenWhenThen {
     scenario("fetching resultset rows as an ResultSet iterator") {
       import microsql.SQL._
 
-      given("an empty database")
+      Given("an empty database")
       Class.forName("org.h2.Driver")
       implicit val c = DriverManager.getConnection("jdbc:h2:/tmp/test.db","sa","")
       executeSimple("drop table if exists student")
       executeSimple("drop table if exists teacher")
       executeSimple("create table if not exists student (id int, name varchar(128), last_name varchar(128))")
 
-      when("a batch insert statement is run")
+      When("a batch insert statement is run")
       executeSimple("insert into student (id,name,last_name) values (?,?,?)",
         List((1,"john","doe"),
              (2,"marry","poppins"),
              (3,"peter","pan")))
 
-      then("the select with multiple bound args must give us a list of lists of results")
+      Then("the select with multiple bound args must give us a list of lists of results")
       case class Student(name: String, lastName: String)
       val result =
         ("select name,last_name from student where name=?" << "thedog" execute).map{ rs =>
@@ -171,25 +171,25 @@ class SQLTest extends FeatureSpec with GivenWhenThen {
     scenario("running a successful transaction") {
       import microsql.SQL._
 
-      given("an empty database")
+      Given("an empty database")
       Class.forName("org.h2.Driver")
       implicit val c = DriverManager.getConnection("jdbc:h2:/tmp/test.db","sa","")
       executeSimple("drop table if exists student")
       executeSimple("drop table if exists teacher")
       executeSimple("create table if not exists student (id int, name varchar(128), last_name varchar(128))")
 
-      when("a batch insert statement is run")
+      When("a batch insert statement is run")
       executeSimple("insert into student (id,name,last_name) values (?,?,?)",
         List((1,"john","doe"),
              (2,"marry","poppins"),
              (3,"peter","pan")))
       
-      when("an insert is made in a transaction")
+      When("an insert is made in a transaction")
       transaction {
         executeSimple("insert into student (id,name,last_name) values (?,?,?)",
           List((4,"some","one")))
       }
-      then("the new row is visible after a transaction is committed")
+      Then("the new row is visible after a transaction is committed")
       val result = 
         executeForResult("select name from student where id=4")( _.getString("name")).head
       assert(result == "some")
@@ -199,29 +199,29 @@ class SQLTest extends FeatureSpec with GivenWhenThen {
     scenario("running a transaction that rolls back") {
       import microsql.SQL._
 
-      given("an empty database")
+      Given("an empty database")
       Class.forName("org.h2.Driver")
       implicit val c = DriverManager.getConnection("jdbc:h2:/tmp/test.db","sa","")
       executeSimple("drop table if exists student")
       executeSimple("drop table if exists teacher")
       executeSimple("create table if not exists student (id int, name varchar(128), last_name varchar(128))")
 
-      when("a batch insert statement is run")
+      When("a batch insert statement is run")
       executeSimple("insert into student (id,name,last_name) values (?,?,?)",
         List((1,"john","doe"),
              (2,"marry","poppins"),
              (3,"peter","pan")))
       
-      when("an insert is made in a transaction")
+      When("an insert is made in a transaction")
       val transactionResult = transaction {
         executeSimple("insert into student (id,name,last_name) values (?,?,?)",
           List((4,"some","one")))
         
-        when("an exception is thrown")
+        When("an exception is thrown")
         throw new Exception("rollback this")
       }
 
-      then("the result of a rolled back transaction is a Left[X] and the changes are undone")
+      Then("the result of a rolled back transaction is a Left[X] and the changes are undone")
       val result = 
         executeForResult("select name from student where id=4")( _.getString("name")).headOption
       assert(transactionResult.isLeft == true)

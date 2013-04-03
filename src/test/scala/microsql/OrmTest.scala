@@ -1,4 +1,4 @@
- package microsql
+package microsql
 
 import org.scalatest.{FeatureSpec,GivenWhenThen}
 import java.sql._
@@ -16,7 +16,7 @@ class OrmTest extends FeatureSpec with GivenWhenThen {
     scenario("create a new object") {
       import microsql.SQL._
 
-      given("an empty database with a student table")
+      Given("an empty database with a student table")
       Class.forName("org.h2.Driver")
       implicit val c = DriverManager.getConnection("jdbc:h2:/tmp/testdb2.db","sa","")
       executeSimple("drop table if exists student")
@@ -25,7 +25,7 @@ class OrmTest extends FeatureSpec with GivenWhenThen {
       executeSimple("create table student (name varchar(128), last_name varchar(128),id identity)")
       executeSimple("create table teacher (name varchar(128), last_name varchar(128),id identity)")
 
-      when("a test row is inserted")
+      When("a test row is inserted")
       withPrepared("insert into student (name,last_name) values ('john','doe')",returnGeneratedKeys){ s =>
         val genKey = s.execute.getGeneratedKeys
         if (genKey.next)
@@ -35,14 +35,14 @@ class OrmTest extends FeatureSpec with GivenWhenThen {
           println("generated key: " + genKey2)
       }
 
-      when("a domain model is defined")
+      When("a domain model is defined")
       object SchoolSchema extends Schema {
         override val entities = Map(
           entity[Student]("student"),
           entity[Teacher]("teacher"))
       }
 
-      then("a simple case class extractor should work")
+      Then("a simple case class extractor should work")
       import SchoolSchema._
 
       val r = executeForResult("select * from student where id=1")( extract[Student](_) ).head

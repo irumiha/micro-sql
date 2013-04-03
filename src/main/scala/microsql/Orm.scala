@@ -1,6 +1,8 @@
 package microsql
+import scala.language.{reflectiveCalls, postfixOps}
 
 import java.sql.{Connection, ResultSet}
+import reflect.ClassTag
 
 
 object Orm {
@@ -12,19 +14,20 @@ object Orm {
     var id: Long = _
   }
 
-  def entity[T](tname: String)(implicit man: Manifest[T]) = {
-    val proto = man.erasure
+  def entity[T](tname: String)(implicit man: ClassTag[T]) = {
+    val proto = man.runtimeClass
     val attributes = proto.getDeclaredFields.map(f => (f.getName, f.getType.getName))
 
     (proto.getName, (tname, attributes))
   }
 
+
   trait Schema {
     val entities: Map[String,(String,Array[(String,String)])]
 
-    def extract[T](rs: ResultSet)(implicit man: Manifest[T]): T = {
-      val attributes = entities(man.erasure.getName)._2
-      val constructor = man.erasure.getConstructors.head // We expect to have only one constructor
+    def extract[T](rs: ResultSet)(implicit man: ClassTag[T]): T = {
+      val attributes = entities(man.runtimeClass.getName)._2
+      val constructor = man.runtimeClass.getConstructors.head // We expect to have only one constructor
       val args = attributes map (a => rs.getObject(a._1))
 
       val r = constructor.newInstance(args.take(constructor.getParameterTypes.length): _*).asInstanceOf[T]
@@ -46,10 +49,10 @@ object Orm {
       }}.orElse{Some(r)}.get
     }
 
-    def insert[T](ent: T)(implicit conn: Connection, man: Manifest[T]): T = {
+    def insert[T](ent: T)(implicit conn: Connection, man: ClassTag[T]): T = {
       import microsql.SQL._
-      val entData = entities(man.erasure.getName)
-      val isKeyed = man.erasure.getInterfaces.map(_.getName).find(_ == "microsql.Orm$LongIDKey").isDefined
+      val entData = entities(man.runtimeClass.getName)
+      val isKeyed = man.runtimeClass.getInterfaces.map(_.getName).find(_ == "microsql.Orm$LongIDKey").isDefined
       val (tableName,fields) = entData
       val fieldsForQuery = if (isKeyed) fields.filter(_._1 != "id") else fields
 
@@ -74,9 +77,9 @@ object Orm {
       }
     }
 
-    def update[T](ent: T)(implicit conn: Connection, man: Manifest[T]): T = {
+    def update[T](ent: T)(implicit conn: Connection, man: ClassTag[T]): T = {
       import microsql.SQL._
-      val entData = entities(man.erasure.getName)
+      val entData = entities(man.runtimeClass.getName)
       val (tableName,fields) = entData
       val fieldsNoID = fields.filter(_._1 != "id")
       val insertStr =
@@ -87,18 +90,18 @@ object Orm {
       ent
     }
 
-    def loadByID[T](id: Long)(implicit conn: Connection, man: Manifest[T]): Option[T] = {
+    def loadByID[T](id: Long)(implicit conn: Connection, man: ClassTag[T]): Option[T] = {
       import microsql.SQL._
-      val entData = entities(man.erasure.getName)
+      val entData = entities(man.runtimeClass.getName)
       val (tableName,fields) = entData
       val fetchStr = "select * from %s where id=?".format(tableName)
 
       (fetchStr << id execute { extract[T](_) }).toList.headOption
     }
 
-    def deleteByID[T](id: Long)(implicit conn: Connection, man: Manifest[T]) {
+    def deleteByID[T](id: Long)(implicit conn: Connection, man: ClassTag[T]) {
       import microsql.SQL._
-      val entData = entities(man.erasure.getName)
+      val entData = entities(man.runtimeClass.getName)
       val (tableName,fields) = entData
       val fetchStr = "delete * from %s where id=?".format(tableName)
 
