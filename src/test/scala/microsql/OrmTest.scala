@@ -26,13 +26,9 @@ class OrmTest extends FeatureSpec with GivenWhenThen {
       executeSimple("create table teacher (name varchar(128), last_name varchar(128),id identity)")
 
       When("a test row is inserted")
-      withPrepared("insert into student (name,last_name) values ('john','doe')",returnGeneratedKeys){ s =>
+      withPrepared("insert into student (name,last_name) values ('john','doe')", returnGeneratedKeys){ s =>
         val genKey = s.execute.getGeneratedKeys
-        if (genKey.next)
-          println("generated key: " + genKey)
         val genKey2 = s.execute.getGeneratedKeys
-        if (genKey2.next)
-          println("generated key: " + genKey2)
       }
 
       When("a domain model is defined")
@@ -50,10 +46,10 @@ class OrmTest extends FeatureSpec with GivenWhenThen {
       assert(r.name == "john")
       assert(r.id == 1)
 
-      println(insert(Student("igor","rumiha")).id)
-      "select * from student" execute ( extract[Student](_) ) foreach (s => println(s.toString + " with id: " + s.id))
-      println(loadByID[Student](1))
-      println(loadByID[Student](32))
+//      println(insert(Student("igor","rumiha")).id)
+//      "select * from student" execute ( extract[Student](_) ) foreach (s => println(s.toString + " with id: " + s.id))
+//      println(loadByID[Student](1))
+//      println(loadByID[Student](32))
       val testUpdate = loadByID[Student](1).get
       testUpdate.last_name = "somethingother"
       update(testUpdate)

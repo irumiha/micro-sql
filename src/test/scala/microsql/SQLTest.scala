@@ -1,4 +1,5 @@
 package microsql
+import scala.language.postfixOps
 
 import org.scalatest.{FeatureSpec, GivenWhenThen}
 import java.sql._
@@ -18,7 +19,10 @@ class SQLTest extends FeatureSpec with GivenWhenThen {
       implicit val c = DriverManager.getConnection("jdbc:h2:/tmp/test.db","sa","")
       executeSimple("drop table if exists student")
       executeSimple("drop table if exists teacher")
-      executeSimple("create table if not exists student (id int, name varchar(128), last_name varchar(128))")
+      executeSimple(
+        """create table if not exists
+          |student (id int, name varchar(128), last_name varchar(128))
+          |""".stripMargin)
 
       When("an insert query is run")
       executeSimple("insert into student (id,name,last_name) values (1,'john','doe')")
@@ -75,14 +79,12 @@ class SQLTest extends FeatureSpec with GivenWhenThen {
 
       Then("the select with rowToMap extractor function must return rows as Maps")
       val result = executeForResult("select * from student order by id")( extractToMap )
-      assert(result.head("ID")("value") match {
+      assert(result.head("id")._2 match {
         case Some(v) => v equals 1
         case _       => false
       })
-      assert(result.drop(1).head("NAME")("value") match {
-        case Some(v) => v equals "marry"
-      })
-      assert(result.drop(1).head("NAME")("type") equals "VARCHAR")
+      assert(result.drop(1).head("name")._2.fold(false)(_ equals "marry"))
+      assert(result.drop(1).head("name")._1 equals java.sql.Types.VARCHAR)
       c.close()
     }
 
@@ -224,9 +226,35 @@ class SQLTest extends FeatureSpec with GivenWhenThen {
       Then("the result of a rolled back transaction is a Left[X] and the changes are undone")
       val result = 
         executeForResult("select name from student where id=4")( _.getString("name")).headOption
-      assert(transactionResult.isLeft == true)
-      assert(result.isEmpty == true)
+      assert(transactionResult.isLeft)
+      assert(result.isEmpty)
       c.close()
+    }
+
+    scenario("Extractors work with case class apply methods") {
+      import microsql.SQL._
+      import microsql.Extractors._
+
+      Given("an empty database")
+      Class.forName("org.h2.Driver")
+      implicit val c = DriverManager.getConnection("jdbc:h2:/tmp/test.db","sa","")
+      executeSimple("drop table if exists student")
+      executeSimple("drop table if exists teacher")
+      executeSimple("create table if not exists student (id int, name varchar(128), last_name varchar(128))")
+
+      When("a batch insert statement is run")
+      executeSimple("insert into student (id,name,last_name) values (?,?,?)",
+        List((1,"john","doe"),
+          (2,"marry","poppins"),
+          (3,"peter","pan")))
+
+      Then("Extractors work with case classes")
+      case class TestQResult(name: String, last_name: String)
+      val result = executeForResult("select name, last_name from student order by id")(mapping(_, TestQResult.apply _) )
+      result.foreach{r =>
+        assert(r.name == "john" || r.name == "marry" || r.name == "peter")
+      }
+
     }
   }
 }

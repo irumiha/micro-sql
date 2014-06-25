@@ -4,7 +4,11 @@ import scala.language.{reflectiveCalls, postfixOps}
 import java.sql.{Connection, ResultSet}
 import reflect.ClassTag
 
-
+/**
+ * This is not a real ORM, just an attempt at automating some really simple
+ * database use cases. This is just an experimental playground, not really meant
+ * to be used in any serious capacity.
+ */
 object Orm {
   abstract class SQLConstraint
   case object IsNull extends SQLConstraint
@@ -35,24 +39,22 @@ object Orm {
       // We search for the remaining argument not consumed by the constructor.
       // Take note: only one argument (Integer or Long) will be taken into account here
       // and assigned to the id field of the resulting case class
-      args.drop(constructor.getParameterTypes.length).headOption.flatMap{ x => x match {
-        case id: java.lang.Integer => {
+      args.drop(constructor.getParameterTypes.length).headOption.flatMap {
+        case id: java.lang.Integer =>
           val r2 = r.asInstanceOf[LongIDKey]
           r2.id = id.longValue()
           Some(r2.asInstanceOf[T])
-        }
-        case id: java.lang.Long => {
+        case id: java.lang.Long =>
           val r2 = r.asInstanceOf[LongIDKey]
-          r2.id =id.longValue()
+          r2.id = id.longValue()
           Some(r2.asInstanceOf[T])
-        }
-      }}.orElse{Some(r)}.get
+      }.orElse{Some(r)}.get
     }
 
     def insert[T](ent: T)(implicit conn: Connection, man: ClassTag[T]): T = {
       import microsql.SQL._
       val entData = entities(man.runtimeClass.getName)
-      val isKeyed = man.runtimeClass.getInterfaces.map(_.getName).find(_ == "microsql.Orm$LongIDKey").isDefined
+      val isKeyed = man.runtimeClass.getInterfaces.map(_.getName).contains("microsql.Orm$LongIDKey")
       val (tableName,fields) = entData
       val fieldsForQuery = if (isKeyed) fields.filter(_._1 != "id") else fields
 
@@ -85,15 +87,17 @@ object Orm {
       val insertStr =
         "update "+tableName+" set "+fieldsNoID.map(_._1 + "=?").mkString(",") + " where id=?"
 
-      val s = ent.asInstanceOf[Product].productIterator.foldLeft(insertStr:RichPreparedStatement){(s,f) => s << f.asInstanceOf[AnyRef]}
-      (s << ent.asInstanceOf[{var id: Long}].id <<!)
+      val s = ent.asInstanceOf[Product].productIterator.foldLeft(insertStr:RichPreparedStatement){(s,f) =>
+        s << f.asInstanceOf[AnyRef]}
+      (s << ent.asInstanceOf[{var id: Long}].id).<<!
+
       ent
     }
 
     def loadByID[T](id: Long)(implicit conn: Connection, man: ClassTag[T]): Option[T] = {
       import microsql.SQL._
       val entData = entities(man.runtimeClass.getName)
-      val (tableName,fields) = entData
+      val (tableName, _) = entData
       val fetchStr = "select * from %s where id=?".format(tableName)
 
       (fetchStr << id execute { extract[T](_) }).toList.headOption
@@ -102,7 +106,7 @@ object Orm {
     def deleteByID[T](id: Long)(implicit conn: Connection, man: ClassTag[T]) {
       import microsql.SQL._
       val entData = entities(man.runtimeClass.getName)
-      val (tableName,fields) = entData
+      val (tableName, _) = entData
       val fetchStr = "delete * from %s where id=?".format(tableName)
 
       (fetchStr << id <<!).execute

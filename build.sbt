@@ -4,17 +4,25 @@ version := "1.0"
 
 organization := "com.rumi"
 
-scalaVersion := "2.10.0"
+scalaVersion := "2.11.1"
 
-libraryDependencies += "junit" % "junit" % "4.8" % "test"
+crossScalaVersions := Seq("2.10.4", "2.11.1")
 
 libraryDependencies ++= Seq(
-  "com.chuusai" % "shapeless_2.10" % "1.2.3",
-  "com.h2database" % "h2" % "1.3.155" % "test",
-  "postgresql" % "postgresql" % "9.0-801.jdbc4" % "test",
-  "org.scalatest" %% "scalatest" % "1.9.1" % "test",
-  "org.scala-lang" % "scala-reflect" % "2.10.0"
+  "com.h2database" % "h2" % "1.3.155",
+  "postgresql" % "postgresql" % "9.0-801.jdbc4",
+  "junit" % "junit" % "4.8" % "test",
+  "org.scalatest" %% "scalatest" % "2.2.0" % "test"
 )
+
+libraryDependencies := {
+  CrossVersion.partialVersion(scalaVersion.value) match {
+    case Some((2, scalaMajor)) if scalaMajor >= 11 =>
+      libraryDependencies.value :+ "org.scala-lang" % "scala-reflect" % "2.11.1"
+    case _ =>
+      libraryDependencies.value :+ "org.scala-lang" % "scala-reflect" % "2.10.4"
+  }
+}
 
 resolvers ++= Seq(
     "snapshots" at "http://scala-tools.org/repo-snapshots",
@@ -22,4 +30,3 @@ resolvers ++= Seq(
     "Sonatype OSS Releases" at "http://oss.sonatype.org/content/repositories/releases/",
     "Sonatype OSS Snapshots" at "http://oss.sonatype.org/content/repositories/snapshots/"
 )
-
