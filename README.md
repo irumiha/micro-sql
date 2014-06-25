@@ -17,5 +17,5 @@ Look at the tests! :)
 License
 =======
 
-This code is based on work of others where the license was not specified. So I release the rest of the work unther the [Unlicense](http://unlicense.org)
+This code is based on work of others where the license was not specified. So I release the rest of the work under the [Unlicense](http://unlicense.org)
 
