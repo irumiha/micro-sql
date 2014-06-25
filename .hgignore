@@ -1,7 +1,0 @@
-syntax: glob
-
-target
-project/boot
-.idea
-.idea_modules
-

@@ -64,7 +64,7 @@ object Orm {
             fieldsForQuery.map(_._1).mkString(","),
             fieldsForQuery.map(x => "?").mkString(","))
 
-      withPrepared(insertStr,returnGeneratedKeys) { s =>
+      withPrepared(insertStr,returnID = true) { s =>
         ent.asInstanceOf[Product].productIterator.foldLeft(s){(s,f) => s << f.asInstanceOf[AnyRef]}
         val newKey = Option(s.execute.ps.getGeneratedKeys)
         if (isKeyed && newKey.isDefined && newKey.get.next) {

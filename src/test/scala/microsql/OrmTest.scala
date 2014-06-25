@@ -26,7 +26,7 @@ class OrmTest extends FeatureSpec with GivenWhenThen {
       executeSimple("create table teacher (name varchar(128), last_name varchar(128),id identity)")
 
       When("a test row is inserted")
-      withPrepared("insert into student (name,last_name) values ('john','doe')", returnGeneratedKeys){ s =>
+      withPrepared("insert into student (name,last_name) values ('john','doe')", returnID = true){ s =>
         val genKey = s.execute.getGeneratedKeys
         val genKey2 = s.execute.getGeneratedKeys
       }
