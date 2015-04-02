@@ -80,7 +80,7 @@ class SQLTest extends FeatureSpec with GivenWhenThen {
       Then("the select with rowToMap extractor function must return rows as Maps")
       val result = executeForResult("select * from student order by id")( extractToMap )
       assert(result.head("id")._2 match {
-        case Some(v) => v equals 1
+        case Some(v) if v.isInstanceOf[Int] => v.asInstanceOf[Int] equals 1
         case _       => false
       })
       assert(result.drop(1).head("name")._2.fold(false)(_ equals "marry"))
@@ -250,7 +250,7 @@ class SQLTest extends FeatureSpec with GivenWhenThen {
 
       Then("Extractors work with case classes")
       case class TestQResult(name: String, last_name: String)
-      val result = executeForResult("select name, last_name from student order by id")(mapping(_, TestQResult.apply _) )
+      val result = executeForResult("select name, last_name from student order by id")(TestQResult.apply)
       result.foreach{r =>
         assert(r.name == "john" || r.name == "marry" || r.name == "peter")
       }

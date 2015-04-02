@@ -188,7 +188,7 @@ object SQL {
    * @tparam X The extracted row type
    * @return
    */
-  def executeForResult[X](rps: RichPreparedStatement, args: Seq[Product])(f: RichResultSet => X): Seq[List[X]] = {
+  def executeForResult[X](rps: RichPreparedStatement, args: Seq[Product])(f: RichResultSet => X): Seq[Vector[X]] = {
     val r = args.map { p =>
       p.productIterator.zipWithIndex.foreach {
         case (a: Boolean, i: Int) => rps.ps.setBoolean(i + 1, a)
@@ -205,7 +205,7 @@ object SQL {
         case (a: AnyRef, i: Int) => rps.ps.setObject(i + 1, a)
       }
 
-      rps.execute(f).toList
+      rps.execute(f).toVector
     }
     rps.close()
     r
@@ -220,8 +220,8 @@ object SQL {
    * @tparam X Extracted type.
    * @return
    */
-  def executeForResult[X](rps: RichPreparedStatement)(f: RichResultSet => X): List[X] = {
-    val r = rps.execute(f).toList
+  def executeForResult[X](rps: RichPreparedStatement)(f: RichResultSet => X): Vector[X] = {
+    val r = rps.execute(f).toVector
     rps.close()
     r
   }

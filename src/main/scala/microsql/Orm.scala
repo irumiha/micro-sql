@@ -27,7 +27,12 @@ object Orm {
 
 
   trait Schema {
-    val entities: Map[String,(String,Array[(String,String)])]
+    type ClassName = String
+    type TableName = String
+    type ColumnName = String
+    type ColumnTypeName = String
+
+    val entities: Map[ClassName, (TableName, Array[ ( ColumnName, ColumnTypeName ) ])]
 
     def extract[T](rs: ResultSet)(implicit man: ClassTag[T]): T = {
       val attributes = entities(man.runtimeClass.getName)._2
