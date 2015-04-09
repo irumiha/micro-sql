@@ -10,7 +10,9 @@ import scala.collection.Iterator
  * Like several other libs, this one is also inspired and based on the article
  * and code at:
  *
- * <a href="https://wiki.scala-lang.org/display/SYGN/Simplifying-jdbc">https://wiki.scala-lang.org/display/SYGN/Simplifying-jdbc</a>
+ * <a href="https://wiki.scala-lang.org/display/SYGN/Simplifying-jdbc">
+ *   https://wiki.scala-lang.org/display/SYGN/Simplifying-jdbc
+ * </a>
  * 
  */
 object SQL {
@@ -63,7 +65,9 @@ object SQL {
    * @tparam X The extracted datastructure type
    * @return
    */
-  implicit def query[X](s: String, f: RichResultSet => X)(implicit stat: Statement): Iterator[X] =
+  implicit def query[X](s: String, f: RichResultSet => X)
+                       (implicit stat: Statement): Iterator[X] =
+
     new RSIter(stat.executeQuery(s)).map(row => f(new RichResultSet(row)))
 
 
@@ -119,10 +123,12 @@ object SQL {
     }
   }
 
-  implicit def ps2Rich(ps: PreparedStatement): RichPreparedStatement = new RichPreparedStatement(ps)
+  implicit def ps2Rich(ps: PreparedStatement): RichPreparedStatement =
+    new RichPreparedStatement(ps)
   implicit def rich2PS(r: RichPreparedStatement): PreparedStatement  = r.ps
 
-  implicit def str2RichPrepared(s: String)(implicit conn: Connection): RichPreparedStatement =
+  implicit def str2RichPrepared(s: String)
+                               (implicit conn: Connection): RichPreparedStatement =
     conn.prepareStatement(s)
 
   /**
@@ -139,7 +145,9 @@ object SQL {
    * @tparam X The extracted row type
    * @return
    */
-  def withPrepared[X](query: String, returnID: Boolean = false)(f: RichPreparedStatement => X)(implicit conn: Connection): X = {
+  def withPrepared[X](query: String, returnID: Boolean = false)
+                     (f: RichPreparedStatement => X)
+                     (implicit conn: Connection): X = {
     val rps: RichPreparedStatement =
       if (returnID)
         conn.prepareStatement(query, Statement.RETURN_GENERATED_KEYS)
