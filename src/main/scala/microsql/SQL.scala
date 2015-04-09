@@ -16,47 +16,20 @@ import scala.collection.Iterator
 object SQL {
 
   /**
-   * Extracts query result row into a Map of
-   * name: String -> (type: Int, value: Option[AnyRef]). This is more of a
-   * homage to database libraries written in dynamic languages.
-   *
-   * The Int representing the type is a constant from java.sql.Types
-   *
-   * All column names are converted to lowercase.
-   *
-   * @param rrs A Rich ResultSet set to the current row
-   * @return
-   */
-  def extractToMap(rrs: RichResultSet): Map[String,(Int, Option[AnyRef])] = {
-    val md = rrs.rs.getMetaData
-    val colCount = md.getColumnCount
-
-    val nm = collection.mutable.Map[String,(Int, Option[AnyRef])]()
-    var cc = 1
-    while(cc <= colCount) {
-      val v = rrs.rs.getObject(cc)
-      nm += (md.getColumnName(cc).toLowerCase -> (md.getColumnType(cc), Option(v)))
-      cc += 1
-    }
-
-    nm.toMap
-  }
-
-  /**
    * A wrapper around ResultSet that makes it look like an Iterator[ResultSet]
    * Makes iterating and extracting values cleaner.
    *
    * @param rs The wrapped ResultSet
    */
   class RSIter(val rs: ResultSet) extends Iterator[ResultSet] {
-    var nextAvailable = rs.next
+    var nextAvailable = rs.next()
     var needToCallNext = false
 
     override def hasNext = {
       if (needToCallNext) {
         nextAvailable = rs.next()
         if (!nextAvailable) {
-          rs.close()
+          rs.getStatement.close()
         }
       }
       nextAvailable
@@ -94,7 +67,7 @@ object SQL {
     new RSIter(stat.executeQuery(s)).map(row => f(new RichResultSet(row)))
 
 
-  implicit def conn2Statement(conn: Connection): Statement = conn.createStatement
+  implicit def conn2Statement(conn: Connection): Statement      = conn.createStatement
 
   implicit def rrs2Boolean(rs: RichResultSet): Boolean          = rs.nextBoolean
   implicit def rrs2Byte(rs: RichResultSet): Byte                = rs.nextByte
@@ -109,8 +82,8 @@ object SQL {
   implicit def rrs2BinaryStream(rs: RichResultSet): InputStream = rs.nextBinStream
   implicit def rrs2Option[T](rs: RichResultSet): Option[T]      = rs.nextNullable
 
-  implicit def resultSet2Rich(rs: ResultSet): RichResultSet = new RichResultSet(rs)
-  implicit def rich2ResultSet(r: RichResultSet): ResultSet = r.rs
+  implicit def resultSet2Rich(rs: ResultSet): RichResultSet     = new RichResultSet(rs)
+  implicit def rich2ResultSet(r: RichResultSet): ResultSet      = r.rs
 
   // will convert any single value to a Tuple1 where it is needed
   implicit def value2tuple[T](x: T): Tuple1[T] = Tuple1(x)
@@ -156,7 +129,8 @@ object SQL {
    * Run a code block with a prepared statement from a query string. The code
    * block should set any placeholder values, execute the statement, then
    * extract all results. Do not return a ResultSet or the received prepared
-   * statement, as the prepared statement will be closed after the code block!
+   * statement, as the prepared statement will be closed immediately after the
+   * code block!
    *
    * @param query The SQL query string
    * @param returnID Should the result set contain generated keys?
@@ -178,40 +152,6 @@ object SQL {
   }
 
   /**
-   * A do-all function that will apply a Seq of argument values to a Query and
-   * for each set of arguments run an extractor function.
-   *
-   * @param rps The prepared statement. It is also expected to use a String as it
-   *            can be implicitly converted to a prepared statement.
-   * @param args A Seq of tuples containing the query arguments
-   * @param f The extractor function
-   * @tparam X The extracted row type
-   * @return
-   */
-  def executeForResult[X](rps: RichPreparedStatement, args: Seq[Product])(f: RichResultSet => X): Seq[Vector[X]] = {
-    val r = args.map { p =>
-      p.productIterator.zipWithIndex.foreach {
-        case (a: Boolean, i: Int) => rps.ps.setBoolean(i + 1, a)
-        case (a: Byte, i: Int) => rps.ps.setByte(i + 1, a)
-        case (a: Int, i: Int) => rps.ps.setInt(i + 1, a)
-        case (a: Long, i: Int) => rps.ps.setLong(i + 1, a)
-        case (a: Float, i: Int) => rps.ps.setFloat(i + 1, a)
-        case (a: Double, i: Int) => rps.ps.setDouble(i + 1, a)
-        case (a: String, i: Int) => rps.ps.setString(i + 1, a)
-        case (a: Date, i: Int) => rps.ps.setDate(i + 1, a)
-        case (a: Timestamp, i: Int) => rps.ps.setTimestamp(i + 1, a)
-        case (Some(a), i: Int) => rps.ps.setObject(i + 1, a)
-        case (None, i: Int) => rps.ps.setObject(i + 1, null)
-        case (a: AnyRef, i: Int) => rps.ps.setObject(i + 1, a)
-      }
-
-      rps.execute(f).toVector
-    }
-    rps.close()
-    r
-  }
-
-  /**
    * Run a simple query without arguments, then use the provided code block to
    * extract the values.
    *
@@ -220,11 +160,8 @@ object SQL {
    * @tparam X Extracted type.
    * @return
    */
-  def executeForResult[X](rps: RichPreparedStatement)(f: RichResultSet => X): Vector[X] = {
-    val r = rps.execute(f).toVector
-    rps.close()
-    r
-  }
+  def executeForResult[X](rps: RichPreparedStatement)(f: RichResultSet => X): Iterator[X] =
+    rps.execute(f)
 
   /**
    * Just execute the given query. An optional Seq of tuples is accepted as
@@ -261,8 +198,6 @@ object SQL {
         rps.execute()
       }
     }
-
-    rps.close()
   }
 
   /**
@@ -283,7 +218,7 @@ object SQL {
    * @tparam X The result type.
    * @return Either a Right with the result or a Left with the stack trace.
    */
-  def transaction[X](f: => X)(implicit conn: Connection): Either[Throwable,X] = {
+  def transaction[X](f: => X)(implicit conn: Connection): Either[Throwable, X] = {
     val oldIsolationLevel = conn.getTransactionIsolation
     val oldAutoCommit     = conn.getAutoCommit
 
@@ -313,40 +248,33 @@ object SQL {
    * @param ps The wrapped PreparedStatement.
    */
   class RichPreparedStatement(val ps: PreparedStatement) {
-    var pos = 1
-    private def inc = { pos += 1; this }
 
-    def execute[X](f: RichResultSet => X): Iterator[X] = {
-      pos = 1
-
+    def execute[X](f: RichResultSet => X): Iterator[X] =
       new RSIter(ps.executeQuery).map(row => f(new RichResultSet(row)))
-    }
 
-    def <<![X](f: RichResultSet => X): Iterator[X] = execute(f)
-
-    def execute = { pos = 1; ps.execute; this}
-    def <<! = execute
+    def execute = { ps.execute; this}
 
     def close() { ps.close() }
+    
+    def apply(args: Any*) : RichPreparedStatement = {
 
-    def <<(x: Boolean)      = { ps.setBoolean(pos, x);      inc }
-    def <<(x: Byte)         = { ps.setByte(pos, x);         inc }
-    def <<(x: Int)          = { ps.setInt(pos, x);          inc }
-    def <<(x: Long)         = { ps.setLong(pos, x);         inc }
-    def <<(x: Float)        = { ps.setFloat(pos, x);        inc }
-    def <<(x: Double)       = { ps.setDouble(pos, x);       inc }
-    def <<(x: String)       = { ps.setString(pos, x);       inc }
-    def <<(x: Date)         = { ps.setDate(pos, x);         inc }
-    def <<(x: Time)         = { ps.setTime(pos, x);         inc }
-    def <<(x: Timestamp)    = { ps.setTimestamp(pos, x);    inc }
-    def <<(x: InputStream)  = { ps.setBinaryStream(pos, x); inc }
-    def <<(x: AnyRef)       = { ps.setObject(pos, x);       inc }
-    def <<(x: Option[AnyRef]) = {
-      x match {
-        case Some(v) => ps.setObject(pos, v)
-        case None    => ps.setObject(pos,null)
+      args.zipWithIndex.foreach {
+        case (a: Boolean, i: Int) => ps.setBoolean(i + 1, a)
+        case (a: Byte, i: Int) => ps.setByte(i + 1, a)
+        case (a: Int, i: Int) => ps.setInt(i + 1, a)
+        case (a: Long, i: Int) => ps.setLong(i + 1, a)
+        case (a: Float, i: Int) => ps.setFloat(i + 1, a)
+        case (a: Double, i: Int) => ps.setDouble(i + 1, a)
+        case (a: String, i: Int) => ps.setString(i + 1, a)
+        case (a: Date, i: Int) => ps.setDate(i + 1, a)
+        case (a: Timestamp, i: Int) => ps.setTimestamp(i + 1, a)
+        case (Some(a), i: Int) => ps.setObject(i + 1, a)
+        case (None, i: Int) => ps.setObject(i + 1, null)
+        case (a: AnyRef, i: Int) => ps.setObject(i + 1, a)
       }
-      inc
+
+      this
     }
+
   }
 }
