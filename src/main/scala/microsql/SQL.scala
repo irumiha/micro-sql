@@ -24,10 +24,10 @@ object SQL {
    * @param rs The wrapped ResultSet
    */
   class RSIter(val rs: ResultSet) extends Iterator[ResultSet] {
-    var nextAvailable = rs.next()
+    var nextAvailable: Boolean = rs.next()
     var needToCallNext = false
 
-    override def hasNext = {
+    override def hasNext: Boolean = {
       if (needToCallNext) {
         nextAvailable = rs.next()
         if (!nextAvailable) {
@@ -37,7 +37,7 @@ object SQL {
       nextAvailable
     }
 
-    override def next() = {
+    override def next(): ResultSet = {
       needToCallNext = true
       rs
     }
@@ -102,7 +102,7 @@ object SQL {
   class RichResultSet(val rs: ResultSet) {
 
     var pos = 1
-    def apply(i: Int) = { pos = i; this }
+    def apply(i: Int): RichResultSet = {pos = i; this }
 
     def nextBoolean: Boolean       = { val ret = rs.getBoolean(pos);      pos = pos + 1; ret }
     def nextByte: Byte             = { val ret = rs.getByte(pos);         pos = pos + 1; ret }
@@ -183,7 +183,7 @@ object SQL {
    */
   def executeSimple[X](rps: RichPreparedStatement, args: Seq[Product] = Seq()) {
 
-    if (args.length == 0) {
+    if (args.isEmpty) {
       rps.execute()
     }
     else {
@@ -260,9 +260,9 @@ object SQL {
     def execute[X](f: RichResultSet => X): Iterator[X] =
       new RSIter(ps.executeQuery).map(row => f(new RichResultSet(row)))
 
-    def execute = { ps.execute; this}
+    def execute: RichPreparedStatement = {ps.execute; this}
 
-    def close() { ps.close() }
+    def close(): Unit = {ps.close() }
     
     def apply(args: Any*) : RichPreparedStatement = {
 
